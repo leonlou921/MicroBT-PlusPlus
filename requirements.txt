@@ -1,0 +1,21 @@
+# Install a CUDA-compatible PyTorch build separately before installing this list.
+torch
+numpy
+scipy
+batchgenerators
+batchgeneratorsv2
+dynamic-network-architectures
+acvl-utils
+SimpleITK
+nibabel
+scikit-image
+scikit-learn
+pandas
+matplotlib
+tqdm
+blosc2
+tifffile
+threadpoolctl
+requests
+einops
+seaborn

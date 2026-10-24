@@ -1,0 +1,39 @@
+name: Public source checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  source-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Generate and verify ephemeral source baseline
+        run: |
+          python scripts/build_umctf_sacl_c2_source_manifest.py write
+          python scripts/build_umctf_sacl_c2_source_manifest.py verify
+      - name: Check Python and Bash syntax
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          for path in Path('.').rglob('*.py'):
+              ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+          PY
+          find nnunetv2 scripts -name '*.sh' -print0 | xargs -0 -n1 bash -n
+      - name: Check public configuration
+        run: python -m unittest discover -s tests -v
+      - name: Check original dependency-free protocols
+        run: |
+          python - <<'PY'
+          import runpy
+          from pathlib import Path
+          for name in ('test_microbt_sacl_foldall_protocol.py', 'test_formal_launcher_da_workers.py'):
+              namespace = runpy.run_path(str(Path('nnunetv2/tests/unit') / name))
+              for key, value in namespace.items():
+                  if key.startswith('test_') and callable(value):
+                      value()
+          PY
+          python -m unittest nnunetv2.tests.unit.test_run_training_env_contract -v

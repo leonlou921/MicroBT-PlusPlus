@@ -53,6 +53,7 @@ bash scripts/continue_microbt_umctf_sacl_c2_final300_foldall.sh --print-contract
 配置好自己的环境、数据和预处理产物后，可使用最终方法训练模板：
 
 ```bash
+python scripts/build_umctf_sacl_c2_source_manifest.py write
 python scripts/build_umctf_sacl_c2_source_manifest.py verify
 bash scripts/run_microbt_umctf_sacl_c2_foldall_scratch300.sh
 ```
@@ -67,23 +68,21 @@ bash scripts/run_microbt_umctf_sacl_c2_foldall_scratch300.sh
 nnunetv2/               框架、MicroBT++ 模块及原有测试的脱敏版本
 scripts/                最终方法入口与已脱敏的历史实验模板
 tests/                  不依赖训练库的公开配置测试
-artifacts/              公开源码的相对路径哈希清单
+artifacts/              本地生成的校验记录，不随仓库发布
 docs/                   脱敏范围、验证结果与使用边界
 .env.example            不含真实环境信息的配置示例
-SHA256SUMS.txt          当前公开文件的完整性清单
 ```
 
 ## 校验与测试
 
 ```bash
-# Linux
-sha256sum -c SHA256SUMS.txt
-# macOS
-shasum -a 256 -c SHA256SUMS.txt
-
+# 只在本地生成记录；write 会重建信任基线，不应用于接受意外源码变化
+python scripts/build_umctf_sacl_c2_source_manifest.py write
 python scripts/build_umctf_sacl_c2_source_manifest.py verify
 python -m unittest discover -s tests -v
 ```
+
+公开仓库不含具体源码、数据或检查点哈希记录。本地生成的清单用于检测生成之后的源码变化，不能证明与原实验等价。
 
 完整原有测试需要额外训练依赖、可能的 CUDA 后端和数据；其适用范围不同于上面的公开配置测试。本次验证范围见 [发布说明](docs/PUBLIC_RELEASE.md)。
 

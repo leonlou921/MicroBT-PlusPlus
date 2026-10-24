@@ -1,0 +1,6 @@
+# Additional dependencies for the bundled test suite.
+-r requirements.txt
+pytest
+# Optional historical optimizer/visualization paths:
+# adan-pytorch
+# hiddenlayer

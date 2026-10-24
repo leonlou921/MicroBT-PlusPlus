@@ -1,0 +1,52 @@
+# Python and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Data, model weights and generated experiment outputs
+*.nii
+*.nii.gz
+*.dcm
+*.npy
+*.npz
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.log
+nnUNet_raw/
+nnUNet_preprocessed/
+nnUNet_results*/
+logs/
+cache/
+outputs/
+results/
+# Archives and local preparation records
+*.zip
+docs/superpowers/
+
+# Keep platform builds and private preparation out of public source
+*.so
+*.dylib
+*.dll
+.private-preparation/
+
+# Local integrity records and experiment metadata are never published
+/artifacts/
+/SHA256SUMS.txt
