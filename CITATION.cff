@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: "If you use MicroBT++, cite the associated manuscript using the metadata below."
+type: software
+title: "MicroBT++"
+repository-code: "https://github.com/leonlou921/MicroBT-PlusPlus"
+authors:
+  - family-names: Xu
+    given-names: Qing
+  - family-names: Lou
+    given-names: Zhenye
+  - family-names: Zhang
+    given-names: Yixuan
+  - family-names: He
+    given-names: Xiangjian
+  - family-names: Thust
+    given-names: Stefanie
+  - family-names: Auer
+    given-names: Dorothee P.
+  - family-names: Duan
+    given-names: Wenting
+  - family-names: Chen
+    given-names: Zhen
+preferred-citation:
+  type: unpublished
+  title: "Density-Centroid Coupled Learning for Micro Brain Tumor Segmentation and Counting"
+  year: 2026
+  notes: "Author-supplied manuscript; no publication or acceptance claim."
+  authors:
+    - family-names: Xu
+      given-names: Qing
+    - family-names: Lou
+      given-names: Zhenye
+    - family-names: Zhang
+      given-names: Yixuan
+    - family-names: He
+      given-names: Xiangjian
+    - family-names: Thust
+      given-names: Stefanie
+    - family-names: Auer
+      given-names: Dorothee P.
+    - family-names: Duan
+      given-names: Wenting
+    - family-names: Chen
+      given-names: Zhen

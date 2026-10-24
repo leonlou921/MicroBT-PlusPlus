@@ -1,52 +1,74 @@
 # MicroBT++
 
-MicroBT++，基于 nnU-Net v2，包含 **Lesion Mass Conservation (LMC)**、**Anatomy-aligned Pushforward Decoding (APD)** 和 **Support-to-Atom Continuation (SAC)**。
+**Density-Centroid Coupled Learning for Micro Brain Tumor Segmentation and Counting**
 
-本仓库提供网络、损失、trainer、推理、评估及测试代码。
+Qing Xu, Zhenye Lou, Yixuan Zhang, Xiangjian He, Stefanie Thust, Dorothee P. Auer, Wenting Duan, and Zhen Chen
 
-## 方法入口
+MicroBT++ extends the research direction of [MicroBT](https://github.com/leonlou921/MicroBT) with **Count-Coupled Segmentation (CCS)**, **Tumor Density-Centroid Estimation (TDCE)**, and **Seg-to-Count Curriculum Optimization (SCCO)**. A shared density-transport field couples semantic segmentation with lesion instances and counting, with particular attention to micro tumors.
 
-| 方法 | 代码 |
-| --- | --- |
-| Object field `O=(S, rho, T)` | [Network](nnunetv2/nets/microbt_umctf/model.py) |
-| Lesion Mass Conservation (LMC) | [Loss](nnunetv2/training/loss/microbt_umctf_losses.py) |
-| Anatomy-aligned Pushforward Decoding (APD) | [Transport loss](nnunetv2/training/loss/microbt_ctf_losses.py) · [Decoder](nnunetv2/inference/microbt_umctf_decode.py) |
-| Support-to-Atom Continuation (SAC) | [Continuation loss](nnunetv2/training/loss/microbt_sacl_losses.py) · [Trainer](nnunetv2/training/nnUNetTrainer/MicroBTSACLTrainer.py) |
-| 300-epoch trainer | `MicroBTUnitMassSACLFinal300Trainer` |
+[Method](docs/METHOD.md) · [Manuscript results](docs/RESULTS.md) · [Quick start](#quick-start) · [Paper/code alignment](METHOD_CODE_ALIGNMENT.md) · [Citation](CITATION.cff)
 
-## 安装与配置
+## Overview
 
-使用 Python 3.10 或更高版本，并为目标设备安装兼容的 PyTorch / CUDA 环境。依赖清单根据源码 import 整理，未锁定版本；完整训练兼容性需要在目标环境验证。
+[![MicroBT++ framework: shared 3D encoder-decoder, density-transport field, centroid-peak decoding, and SCCO](docs/assets/microbtpp_framework.png)](docs/assets/microbtpp_framework.png)
+
+*Framework overview from the supplied manuscript, Figure 2. Click to view the full-resolution figure.*
+
+- **CCS:** connects voxel-level segmentation and instance-level counting through one structured field.
+- **TDCE:** predicts hierarchical semantic support, equalized lesion density, and centroid-directed transport; deterministic decoding yields instances, boxes, centroids, and a count.
+- **SCCO:** learns semantic support first, then progressively introduces density and transport objectives along their dependency chain.
+
+The manuscript reports an average reduction in micro-tumor counting MAPE of **38.2% for tumors ≤3 mm** and **31.3% for tumors ≤5 mm**, relative to the best non-MicroBT++ baseline in each dataset/size setting across six datasets. These are manuscript-reported results, not measurements from this repository's automated tests.
+
+## From MicroBT to MicroBT++
+
+| Aspect | [MicroBT](https://github.com/leonlou921/MicroBT) | MicroBT++ |
+| --- | --- | --- |
+| Main representation | Centroid-guided synergistic segmentation and localization | Coupled semantic support, density, and transport field |
+| Method components | CAS and VC-Loss | CCS and TDCE |
+| Curriculum | SACO: two-stage size-aware optimization | SCCO: progressive activation of segmentation, density, and transport objectives |
+| Instance/count recovery | Final-mask connected components under the MicroBT evaluation contract | Centroid-peak decoding and endpoint-space instance assignment |
+
+This repository follows MicroBT's presentation and documentation structure. Its current execution entry points are the scripts below; it does not expose the `microbt.cli` pipeline from the earlier repository.
+
+## Pipeline
+
+```text
+aligned multi-modal MRI -> nnU-Net preprocessing -> shared 3D encoder-decoder
+                      -> hierarchical semantic / density / transport field
+                      -> semantic-first, density-then-transport curriculum
+                      -> centroid-peak decoding -> segmentation / instances / count
+```
+
+The supplied final trainer uses one 300-epoch trajectory with progressive objective activation. The curriculum's two stages are phases within that trajectory.
+
+## Quick start
+
+The training target is a compatible Linux/CUDA environment with Python 3.10 or later. Install the appropriate PyTorch build for your device first. The supplied dependency list is unpinned; full runtime compatibility must be validated on the target host.
 
 ```bash
 git clone https://github.com/leonlou921/MicroBT-PlusPlus.git
 cd MicroBT-PlusPlus
 python -m pip install -r requirements.txt
 export PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}"
+cp .env.example .env
 ```
 
-请先按 [.env.example](.env.example) 配置自己的数据目录、数据集编号、缓存目录和解释器。文件内所有路径及数据标识均为示例。不要把填写了真实信息的配置提交到 GitHub。
+Edit `.env` with your own resource paths and generic dataset specification, then load it:
 
 ```bash
-cp .env.example .env
-# 编辑 .env，将示例值替换成自己的配置
 set -a
 . ./.env
 set +a
 ```
 
-## 训练与评估模板
-
-最终方法入口保留 `fold=all`、300 epochs、三区域标签合同及 continuation schedule。历史合同中固定的训练/测试数量和评估名称属于原代码约束，**不是通用数据集默认值**；在其他数据上运行前必须审核并适配相关校验和标签约定。
-
-以下命令只打印训练与续训合同，无需数据或 GPU：
+Inspect the final training contract without loading data or starting training:
 
 ```bash
 bash scripts/run_microbt_umctf_sacl_c2_foldall_scratch300.sh --print-contract
-bash scripts/continue_microbt_umctf_sacl_c2_final300_foldall.sh --print-contract
 ```
 
-配置好自己的环境、数据和预处理产物后，可使用最终方法训练模板：
+After preparing the required data, plans and metadata, establish a local source baseline and run the training template:
 
 ```bash
 python scripts/build_umctf_sacl_c2_source_manifest.py write
@@ -54,20 +76,61 @@ python scripts/build_umctf_sacl_c2_source_manifest.py verify
 bash scripts/run_microbt_umctf_sacl_c2_foldall_scratch300.sh
 ```
 
-训练脚本从当前仓库位置读取源码，要求显式提供本地数据配置，并拒绝覆盖已存在的输出目录。续训入口仍要求 epoch-200 且 optimizer state 符合原协议的检查点；不能用于任意检查点恢复。
+The current launcher retains a fixed cohort-size contract and `fold=all`. Review [Training](docs/TRAINING.md) and [Reproducibility](docs/REPRODUCIBILITY.md) before adapting it to another dataset or using it to interpret manuscript results.
 
-原评估模板位于 [run_microbt_umctf_test251.sh](scripts/run_microbt_umctf_test251.sh)。它保留固定测试数量、模态顺序和目录合同；病例示例已改成合成名称。请按自己的数据格式适配解析器，不能直接据此声明原实验指标。其他历史脚本中的 `/path/to/example` 是需要手动配置的占位符，不能直接当成有效路径使用。
+## Manuscript results
 
-## 仓库结构
+Reported MicroBT++ results from manuscript Tables 1 and 2. Dice and HD95 refer to whole-tumor segmentation; AP_vox uses the manuscript's one-voxel-overlap detection criterion. Higher Dice/AP and lower HD95/MAPE are better.
 
-```text
-nnunetv2/               框架、MicroBT++ 模块及原有测试
-scripts/                最终方法入口与已脱敏的历史实验模板
-tests/                  不依赖训练库的公开配置测试
-artifacts/              本地生成的校验记录，不随仓库发布
-.env.example            不含真实环境信息的配置示例
+| Dataset | Dice ↑ | HD95 (mm) ↓ | AP_vox ↑ | MAPE ↓ |
+| --- | ---: | ---: | ---: | ---: |
+| BraTS-GLI | 0.941 | 3.55 | 0.621 | 0.395 |
+| BraTS-MEN | 0.914 | 6.51 | 0.762 | 0.164 |
+| BraTS-PED | 0.819 | 6.23 | 0.590 | 0.450 |
+| BraTS-MET | 0.760 | 13.35 | 0.683 | 0.568 |
+| MoLab-BM | 0.730 | 40.72 | 0.543 | 1.127 |
+| Pretreat-Mets | 0.841 | 4.16 | 0.776 | 0.463 |
+
+The full comparison tables, micro-tumor size strata, and source notes are in [Results](docs/RESULTS.md). The public snapshot and the supplied manuscript have documented implementation/protocol differences; no exact paper-score reproduction is claimed.
+
+## Outputs
+
+- **Field:** nested region probabilities, nonnegative lesion density, and bounded centroid transport.
+- **Decoder:** centroid coordinates and scores, instance labels, atom map, and a count equal to the number of retained peaks.
+- **Evaluation:** local prediction arrays, case records, progress and summary files.
+- **Native export:** semantic and instance NIfTI files when the evaluator/exporter's prerequisites are satisfied.
+
+See [Inference](docs/INFERENCE.md) and [Evaluation](docs/EVALUATION.md) for formats and definitions.
+
+## Documentation
+
+- [Method and manuscript terminology](docs/METHOD.md)
+- [Manuscript results and comparisons](docs/RESULTS.md)
+- [Data format and configuration](docs/DATA.md)
+- [Training and recovery](docs/TRAINING.md)
+- [Inference and output contract](docs/INFERENCE.md)
+- [Evaluation definitions](docs/EVALUATION.md)
+- [Reproducibility and implementation differences](docs/REPRODUCIBILITY.md)
+- [GPU smoke test](docs/GPU_SMOKE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Model card](docs/MODEL_CARD.md)
+- [Paper-to-code mapping](METHOD_CODE_ALIGNMENT.md)
+- [Public release scope](docs/PUBLIC_RELEASE.md)
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v
 ```
 
-## 来源与授权状态
+The dependency-free checks exercise public configuration, printed contracts, and local source-drift detection. GitHub Actions also checks Python/Bash syntax and a small original protocol-test subset. The full historical unit suite requires training dependencies and, for some tests, external data or CUDA extensions. These checks do not reproduce paper scores.
 
-包含 nnU-Net v2 框架源码，原项目见 [MIC-DKFZ/nnUNet](https://github.com/MIC-DKFZ/nnUNet)。
+## Manuscript and citation
+
+The figures and reported tables are drawn from the author-supplied manuscript named above. No public paper URL, DOI, or acceptance status is asserted. Bibliographic metadata are in [CITATION.cff](CITATION.cff), and a BibTeX entry is in [docs/CITATION.md](docs/CITATION.md).
+
+## Attribution and release scope
+
+MicroBT++ builds on [nnU-Net v2](https://github.com/MIC-DKFZ/nnUNet) and follows the research lineage of [MicroBT](https://github.com/leonlou921/MicroBT). The input source bundle did not include complete license/version provenance; this update adds no new licensing grant.
+
+The public release uses generic paths and synthetic private-case examples. Data, weights, original environment information, concrete source/data/checkpoint hash records, and machine-specific extension binaries remain unpublished. Manuscript illustrations are research figures, not downloadable patient datasets. Internal implementation names `UMCTF`, `CTF`, and `SACL` are retained; see the alignment notes for exact behavior.
